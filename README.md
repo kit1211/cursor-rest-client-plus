@@ -62,16 +62,78 @@ GET https://dummyjson.com/products/1 HTTP/1.1
 
 ### 1. Faker variables — `{{$faker ...}}`
 
-Generate random data in body, headers, or query strings.
+Generate random data in body, headers, or query strings. From [`tests/faker.http`](tests/faker.http):
 
 ```http
-POST https://api.example.com/users HTTP/1.1
+### All Faker types (POST JSON)
+# @name faker-all-types
+POST https://webhook.site/your-token HTTP/1.1
 Content-Type: application/json
 
 {
-  "name": "{{$faker fullName}}",
-  "email": "{{$faker email}}",
-  "age": {{$faker int 18 60}}
+  "person": {
+    "fullName": "{{$faker fullName}}",
+    "firstName": "{{$faker firstName}}",
+    "lastName": "{{$faker lastName}}",
+    "email": "{{$faker email}}",
+    "phone": "{{$faker phone}}"
+  },
+  "location": {
+    "city": "{{$faker city}}",
+    "country": "{{$faker country}}"
+  },
+  "company": "{{$faker company}}",
+  "ids": {
+    "uuid": "{{$faker uuid}}",
+    "ipv4": "{{$faker ipv4}}"
+  },
+  "time": {
+    "datetime": "{{$faker datetime}}",
+    "date": "{{$faker date}}"
+  },
+  "misc": {
+    "word": "{{$faker word}}",
+    "url": "{{$faker url}}",
+    "password": "{{$faker password}}",
+    "boolean": {{$faker boolean}},
+    "age": {{$faker int 18 60}},
+    "score": {{$faker int 1 100}}
+  }
+}
+```
+
+**Resolved body** (values change on every send):
+
+```json
+{
+  "person": {
+    "fullName": "Fred Simonis",
+    "firstName": "Braxton",
+    "lastName": "Christiansen",
+    "email": "Kurtis.Weimann@gmail.com",
+    "phone": "504-590-2644 x4357"
+  },
+  "location": {
+    "city": "Feeneyhaven",
+    "country": "Saint Kitts and Nevis"
+  },
+  "company": "Ryan, Pfeffer and Sawayn",
+  "ids": {
+    "uuid": "21a3f4b7-a5dd-4acc-b4c0-3e37dc567a2d",
+    "ipv4": "157.181.13.128"
+  },
+  "time": {
+    "datetime": "2026-06-07T13:05:42.093Z",
+    "date": "2026-06-06"
+  },
+  "misc": {
+    "word": "facere",
+    "url": "https://curly-lox.com",
+    "password": "lgR6nuTj5OkucBF",
+    "boolean": true,
+    "age": 36,
+    "score": 50
+  }
 }
 ```
 
