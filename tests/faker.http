@@ -1,0 +1,66 @@
+# ทดสอบตัวแปร {{$faker ...}} ของ Cursor REST Client Plus
+# ดูผลที่ได้ที่ https://webhook.site/#!/view/54aad5c3-bac1-421a-bb1b-54d6fa610b97
+
+@webhook = https://webhook.site/54aad5c3-bac1-421a-bb1b-54d6fa610b97
+
+### ทดสอบ Faker ครบทุก type (POST JSON)
+# @name faker-all-types
+POST {{webhook}} HTTP/1.1
+Content-Type: application/json
+
+{
+  "person": {
+    "fullName": "{{$faker fullName}}",
+    "firstName": "{{$faker firstName}}",
+    "lastName": "{{$faker lastName}}",
+    "email": "{{$faker email}}",
+    "phone": "{{$faker phone}}"
+  },
+  "location": {
+    "city": "{{$faker city}}",
+    "country": "{{$faker country}}"
+  },
+  "company": "{{$faker company}}",
+  "ids": {
+    "uuid": "{{$faker uuid}}",
+    "ipv4": "{{$faker ipv4}}"
+  },
+  "time": {
+    "datetime": "{{$faker datetime}}",
+    "date": "{{$faker date}}"
+  },
+  "misc": {
+    "word": "{{$faker word}}",
+    "url": "{{$faker url}}",
+    "password": "{{$faker password}}",
+    "boolean": {{$faker boolean}},
+    "age": {{$faker int 18 60}},
+    "score": {{$faker int 1 100}}
+  }
+}
+
+### ทดสอบ Faker ใน query string (GET)
+GET {{webhook}}?name={{$faker fullName}}&email={{$faker email}}&id={{$faker uuid}} HTTP/1.1
+
+### ทดสอบ Faker int ช่วงตัวเลข (POST)
+# @name faker-int-range
+POST {{webhook}} HTTP/1.1
+Content-Type: application/json
+
+{
+  "min_1_10": {{$faker int 1 10}},
+  "min_100_999": {{$faker int 100 999}},
+  "min_0_10000": {{$faker int 0 10000}}
+}
+
+### ทดสอบสุ่มซ้ำ — แต่ละค่าควรไม่ซ้ำกันใน request เดียวกัน
+POST {{webhook}} HTTP/1.1
+Content-Type: application/json
+
+{
+  "user_a": "{{$faker fullName}}",
+  "user_b": "{{$faker fullName}}",
+  "user_c": "{{$faker fullName}}",
+  "email_a": "{{$faker email}}",
+  "email_b": "{{$faker email}}"
+}

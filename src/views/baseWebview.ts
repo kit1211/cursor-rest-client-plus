@@ -38,6 +38,14 @@ export abstract class BaseWebview {
         commands.executeCommand('setContext', this.previewActiveContextKey, value);
     }
 
+    protected findReusablePanel(): WebviewPanel | undefined {
+        if (this.settings.showResponseInDifferentTab) {
+            return undefined;
+        }
+
+        return this.activePanel ?? (this.panels.length > 0 ? this.panels[this.panels.length - 1] : undefined);
+    }
+
     protected abstract get viewType(): string;
 
     protected abstract get previewActiveContextKey(): string;

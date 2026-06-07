@@ -33,7 +33,9 @@ export class HttpResponseTextDocumentView {
         } else {
             document = this.documents[this.documents.length - 1];
             languages.setTextDocumentLanguage(document, language);
-            const editor = await window.showTextDocument(document, { viewColumn: column, preserveFocus: !this.settings.previewResponsePanelTakeFocus, preview: false });
+            const existingEditor = window.visibleTextEditors.find(editor => editor.document === document);
+            const viewColumn = existingEditor?.viewColumn ?? column;
+            const editor = await window.showTextDocument(document, { viewColumn, preserveFocus: !this.settings.previewResponsePanelTakeFocus, preview: false });
             editor.edit(edit => {
                 const startPosition = new Position(0, 0);
                 const endPosition = document.lineAt(document.lineCount - 1).range.end;

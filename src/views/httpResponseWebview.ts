@@ -70,8 +70,13 @@ export class HttpResponseWebview extends BaseWebview {
     }
 
     public async render(response: HttpResponse, column: ViewColumn) {
+        const reusablePanel = this.findReusablePanel();
         let panel: WebviewPanel;
-        if (this.settings.showResponseInDifferentTab || this.panels.length === 0) {
+
+        if (reusablePanel) {
+            panel = reusablePanel;
+            panel.title = this.getTitle(response);
+        } else {
             panel = window.createWebviewPanel(
                 this.viewType,
                 this.getTitle(response),
@@ -109,16 +114,16 @@ export class HttpResponseWebview extends BaseWebview {
             });
 
             this.panels.push(panel);
-        } else {
-            panel = this.panels[this.panels.length - 1];
-            panel.title = this.getTitle(response);
         }
 
         panel.webview.html = this.getHtmlForWebview(panel, response);
 
         this.setPreviewActiveContext(this.settings.previewResponsePanelTakeFocus);
 
-        panel.reveal(column, !this.settings.previewResponsePanelTakeFocus);
+        panel.reveal(
+            reusablePanel ? panel.viewColumn : column,
+            !this.settings.previewResponsePanelTakeFocus
+        );
 
         this.panelResponses.set(panel, response);
         this.activePanel = panel;
