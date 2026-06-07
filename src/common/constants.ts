@@ -1,5 +1,5 @@
 
-export const ExtensionId: string = 'humao.rest-client';
+export const ExtensionId: string = 'kit1211.rest-client-plus';
 export const AiKey: string = 'ad746e27-4a36-441c-8b94-5db178f81ae3';
 
 export const NoEnvironmentSelectedName: string = 'c0cfe680-4fcd-4b71-a4ba-8cfaee57680a';
@@ -15,6 +15,8 @@ export const GuidVariableName = "$guid";
 export const GuidVariableDescription = "Add a RFC 4122 v4 UUID";
 export const RandomIntVariableName = "$randomInt";
 export const RandomIntDescription = "Returns a random integer between min (included) and max (excluded)";
+export const FakerVariableName = "$faker";
+export const FakerVariableDescription = "สุ่มข้อมูลด้วย Faker เช่น ชื่อ อีเมล เวลา ตัวเลข";
 export const ProcessEnvVariableName = "$processEnv";
 export const ProcessEnvDescription = "Returns the value of process environment variable or '' if not found ";
 export const DotenvVariableName = "$dotenv";

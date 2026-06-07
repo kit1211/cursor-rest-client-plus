@@ -4,12 +4,14 @@ import { EnvironmentVariableProvider } from './httpVariableProviders/environment
 import { FileVariableProvider } from './httpVariableProviders/fileVariableProvider';
 import { HttpVariableProvider } from './httpVariableProviders/httpVariableProvider';
 import { RequestVariableProvider } from './httpVariableProviders/requestVariableProvider';
+import { FakerVariableProvider } from './httpVariableProviders/fakerVariableProvider';
 import { SystemVariableProvider } from './httpVariableProviders/systemVariableProvider';
 import { getCurrentTextDocument } from './workspaceUtility';
 
 export class VariableProcessor {
 
     private static readonly providers: [HttpVariableProvider, boolean][] = [
+        [FakerVariableProvider.Instance, false],
         [SystemVariableProvider.Instance, false],
         [RequestVariableProvider.Instance, true],
         [FileVariableProvider.Instance, true],

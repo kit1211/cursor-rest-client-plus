@@ -1,27 +1,25 @@
 {
-  "name": "rest-client",
-  "displayName": "REST Client",
-  "description": "REST Client for Visual Studio Code",
-  "version": "0.26.0",
-  "publisher": "humao",
+  "name": "rest-client-plus",
+  "displayName": "Cursor REST Client Plus",
+  "description": "REST Client สำหรับ Cursor/VS Code พร้อม Faker variables และแก้ปัญหา response preview บน Cursor",
+  "version": "0.1.2",
+  "publisher": "kit1211",
   "author": {
-    "name": "Huachao Mao",
-    "email": "huachaomao@gmail.com"
+    "name": "kit1211"
   },
-  "icon": "images/rest_icon.png",
+  "icon": "images/rest_icon2.png",
   "galleryBanner": {
-    "color": "#000000",
-    "theme": "dark"
+    "color": "#F5F0E8",
+    "theme": "light"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Huachao/vscode-restclient/issues",
-    "email": "huachaomao@gmail.com"
+    "url": "https://github.com/kit1211/cursor-rest-client-plus/issues"
   },
-  "homepage": "https://github.com/Huachao/vscode-restclient/blob/master/README.md",
+  "homepage": "https://github.com/kit1211/cursor-rest-client-plus#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Huachao/vscode-restclient.git"
+    "url": "https://github.com/kit1211/cursor-rest-client-plus.git"
   },
   "engines": {
     "vscode": "^1.81.0"
@@ -721,6 +719,7 @@
     "webpack-cli": "^5.0.1"
   },
   "dependencies": {
+    "@faker-js/faker": "^9.9.0",
     "adal-node": "^0.2.4",
     "applicationinsights": "^1.0.5",
     "aws-amplify": "^5.0.3",
