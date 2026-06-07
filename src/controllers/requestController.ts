@@ -8,6 +8,7 @@ import { trace } from "../utils/decorator";
 import { HttpClient } from '../utils/httpClient';
 import { RequestState, RequestStatusEntry } from '../utils/requestStatusBarEntry';
 import { RequestVariableCache } from "../utils/requestVariableCache";
+import { ResponseSaveManager } from '../utils/responseSaveManager';
 import { Selector } from '../utils/selector';
 import { UserDataManager } from '../utils/userDataManager';
 import { getCurrentTextDocument } from '../utils/workspaceUtility';
@@ -20,6 +21,7 @@ export class RequestController {
     private _webview: HttpResponseWebview;
     private _textDocumentView: HttpResponseTextDocumentView;
     private _lastRequestSettingTuple: [HttpRequest, IRestClientSettings];
+    private _lastDocument?: TextDocument;
     private _lastPendingRequest?: HttpRequest;
 
     public constructor(context: ExtensionContext) {
@@ -71,8 +73,7 @@ export class RequestController {
 
         const [request, settings] = this._lastRequestSettingTuple;
 
-        // TODO: recover from last request settings
-        await this.runCore(request, settings);
+        await this.runCore(request, settings, this._lastDocument);
     }
 
     @trace('Cancel Request')
@@ -96,6 +97,9 @@ export class RequestController {
         // set last request and last pending request
         this._lastPendingRequest = httpRequest;
         this._lastRequestSettingTuple = [httpRequest, settings];
+        if (document) {
+            this._lastDocument = document;
+        }
 
         // set http request
         try {
@@ -112,12 +116,17 @@ export class RequestController {
                 RequestVariableCache.add(document, httpRequest.name, response);
             }
 
+            if (document) {
+                await ResponseSaveManager.recordResponse(document, httpRequest, response);
+            }
+
             try {
                 const previewColumn = this.resolvePreviewColumn(settings, document);
+                const sourceFile = document?.uri.fsPath;
                 if (settings.previewResponseInUntitledDocument) {
                     await this._textDocumentView.render(response, previewColumn);
                 } else {
-                    await this._webview.render(response, previewColumn);
+                    await this._webview.render(response, previewColumn, sourceFile);
                 }
             } catch (reason) {
                 Logger.error('Unable to preview response:', reason);

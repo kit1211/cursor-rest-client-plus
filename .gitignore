@@ -6,3 +6,6 @@ dist
 
 # Logs
 npm-debug.log*
+
+# Auto-saved responses from @save = true
+**/.rest-client-responses/

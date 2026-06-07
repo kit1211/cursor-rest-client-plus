@@ -2,7 +2,7 @@
   "name": "rest-client-plus",
   "displayName": "Cursor REST Client Plus",
   "description": "REST Client สำหรับ Cursor/VS Code พร้อม Faker variables และแก้ปัญหา response preview บน Cursor",
-  "version": "0.1.4",
+  "version": "0.1.7",
   "publisher": "kit1211",
   "author": {
     "name": "kit1211"
@@ -181,6 +181,30 @@
         "command": "rest-client.import-swagger",
         "title": "Import from file",
         "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.show-response-history",
+        "title": "Response History",
+        "icon": "$(history)",
+        "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.compare-response-previous",
+        "title": "Compare With Previous Response",
+        "icon": "$(diff)",
+        "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.compare-response-history",
+        "title": "Compare With Saved Response",
+        "icon": "$(git-compare)",
+        "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.compare-response-file",
+        "title": "Compare Response With File",
+        "icon": "$(file-diff)",
+        "category": "Rest Client"
       }
     ],
     "menus": {
@@ -214,6 +238,22 @@
           "when": "httpResponsePreviewFocus"
         },
         {
+          "command": "rest-client.show-response-history",
+          "when": "httpResponsePreviewFocus"
+        },
+        {
+          "command": "rest-client.compare-response-previous",
+          "when": "httpResponsePreviewFocus"
+        },
+        {
+          "command": "rest-client.compare-response-history",
+          "when": "httpResponsePreviewFocus"
+        },
+        {
+          "command": "rest-client.compare-response-file",
+          "when": "httpResponsePreviewFocus"
+        },
+        {
           "command": "rest-client.copy-codesnippet",
           "when": "codeSnippetPreviewFocus"
         }
@@ -233,6 +273,26 @@
           "when": "httpResponsePreviewFocus",
           "command": "rest-client.copy-response-body",
           "group": "navigation@3"
+        },
+        {
+          "when": "httpResponsePreviewFocus",
+          "command": "rest-client.show-response-history",
+          "group": "navigation@4"
+        },
+        {
+          "when": "httpResponsePreviewFocus",
+          "command": "rest-client.compare-response-previous",
+          "group": "2_rest-client@1"
+        },
+        {
+          "when": "httpResponsePreviewFocus",
+          "command": "rest-client.compare-response-history",
+          "group": "2_rest-client@2"
+        },
+        {
+          "when": "httpResponsePreviewFocus",
+          "command": "rest-client.compare-response-file",
+          "group": "2_rest-client@3"
         },
         {
           "when": "httpResponsePreviewFocus",

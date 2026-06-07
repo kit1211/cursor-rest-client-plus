@@ -2,6 +2,7 @@ import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
 import { HistoricalHttpRequest } from '../models/httpRequest';
+import { ResponseHistoryEntry } from '../models/responseHistoryEntry';
 import { JsonFileUtility } from './jsonFileUtility';
 
 const restClientDir = 'rest-client';
@@ -36,6 +37,7 @@ function getStatePath(): string {
 export class UserDataManager {
 
     private static readonly historyItemsMaxCount = 50;
+    private static readonly responseHistoryItemsMaxCount = 200;
 
     private static readonly cachePath: string = getCachePath();
     private static readonly statePath: string = getStatePath();
@@ -46,6 +48,10 @@ export class UserDataManager {
 
     private static get historyFilePath() {
         return path.join(this.cachePath, 'history.json');
+    }
+
+    private static get responseHistoryFilePath() {
+        return path.join(this.cachePath, 'response-history.json');
     }
 
     private static get environmentFilePath() {
@@ -60,13 +66,19 @@ export class UserDataManager {
         return path.join(this.cachePath, 'responses/body');
     }
 
+    private static get responseCacheFolderPath() {
+        return path.join(this.cachePath, 'response-cache');
+    }
+
     public static async initialize(): Promise<void> {
         await Promise.all([
             fs.ensureFile(this.historyFilePath),
+            fs.ensureFile(this.responseHistoryFilePath),
             fs.ensureFile(this.cookieFilePath),
             fs.ensureFile(this.environmentFilePath),
             fs.ensureDir(this.responseSaveFolderPath),
-            fs.ensureDir(this.responseBodySaveFolderPath)
+            fs.ensureDir(this.responseBodySaveFolderPath),
+            fs.ensureDir(this.responseCacheFolderPath)
         ]);
     }
 
@@ -84,6 +96,16 @@ export class UserDataManager {
         return JsonFileUtility.deserializeFromFile(this.historyFilePath, []);
     }
 
+    public static async addToResponseHistory(entry: ResponseHistoryEntry): Promise<void> {
+        const entries = await JsonFileUtility.deserializeFromFile<ResponseHistoryEntry[]>(this.responseHistoryFilePath, []);
+        entries.unshift(entry);
+        await JsonFileUtility.serializeToFile(this.responseHistoryFilePath, entries.slice(0, this.responseHistoryItemsMaxCount));
+    }
+
+    public static getResponseHistory(): Promise<ResponseHistoryEntry[]> {
+        return JsonFileUtility.deserializeFromFile(this.responseHistoryFilePath, []);
+    }
+
     public static getEnvironment() {
         return JsonFileUtility.deserializeFromFile(this.environmentFilePath);
     }
@@ -98,5 +120,9 @@ export class UserDataManager {
 
     public static getResponseBodySaveFilePath(fileName: string) {
         return path.join(this.responseBodySaveFolderPath, fileName);
+    }
+
+    public static getResponseCacheFilePath(fileName: string) {
+        return path.join(this.responseCacheFolderPath, fileName);
     }
 }

@@ -1,15 +1,19 @@
 import * as fs from 'fs-extra';
 import * as os from 'os';
 import { Clipboard, commands, env, ExtensionContext, Uri, ViewColumn, WebviewPanel, window, workspace } from 'vscode';
+import { ResponseHeaders } from '../models/base';
 import { SystemSettings } from '../models/configurationSettings';
 import { HttpRequest } from '../models/httpRequest';
 import { HttpResponse } from '../models/httpResponse';
 import { PreviewOption } from '../models/previewOption';
+import { ResponseHistoryEntry, SavedResponseFile } from '../models/responseHistoryEntry';
 import { trace } from '../utils/decorator';
 import { disposeAll } from '../utils/dispose';
 import { MimeUtility } from '../utils/mimeUtility';
 import { base64, formatHeaders, getHeader, isJSONString } from '../utils/misc';
+import { ResponseCompareUtility } from '../utils/responseCompareUtility';
 import { ResponseFormatUtility } from '../utils/responseFormatUtility';
+import { ResponseSaveManager } from '../utils/responseSaveManager';
 import { UserDataManager } from '../utils/userDataManager';
 import { BaseWebview } from './baseWebview';
 
@@ -19,18 +23,35 @@ const contentDisposition = require('content-disposition');
 const OPEN = 'Open';
 const COPYPATH = 'Copy Path';
 
+const RESPONSE_VIEW_TYPE = 'rest-client-plus-response';
+
+/** panel เดียวทั้ง extension — แก้ปัญหาเปิดหลาย tab */
+let canonicalResponsePanel: WebviewPanel | undefined;
+
 type FoldingRange = [number, number];
+
+interface ResponsePanelContext {
+    response: HttpResponse;
+    sourceFile?: string;
+    responseHtml: string;
+    /** history ทั้งไฟล์ .http — ไม่หายเมื่อเปลี่ยน request */
+    fileHistory: ResponseHistoryEntry[];
+    /** history เฉพาะ request ปัจจุบัน */
+    requestHistory: ResponseHistoryEntry[];
+}
 
 export class HttpResponseWebview extends BaseWebview {
 
     private readonly urlRegex = /(https?:\/\/[^\s"'<>\]\)\\]+)/gi;
 
-    private readonly panelResponses: Map<WebviewPanel, HttpResponse>;
+    private readonly panelContexts: Map<WebviewPanel, ResponsePanelContext>;
 
     private readonly clipboard: Clipboard = env.clipboard;
 
+    private settledViewColumn: ViewColumn | undefined;
+
     protected get viewType(): string {
-        return 'rest-response';
+        return RESPONSE_VIEW_TYPE;
     }
 
     protected get previewActiveContextKey(): string {
@@ -41,8 +62,12 @@ export class HttpResponseWebview extends BaseWebview {
         return 'isHTMLResponse';
     }
 
+    private get activeContext(): ResponsePanelContext | undefined {
+        return this.activePanel ? this.panelContexts.get(this.activePanel) : undefined;
+    }
+
     private get activeResponse(): HttpResponse | undefined {
-        return this.activePanel ? this.panelResponses.get(this.activePanel) : undefined;
+        return this.activeContext?.response;
     }
 
     private setIsHTMLResponse(response: HttpResponse | undefined) {
@@ -56,8 +81,7 @@ export class HttpResponseWebview extends BaseWebview {
     public constructor(context: ExtensionContext) {
         super(context);
 
-        // Init response webview map
-        this.panelResponses = new Map<WebviewPanel, HttpResponse>();
+        this.panelContexts = new Map<WebviewPanel, ResponsePanelContext>();
 
         this.context.subscriptions.push(commands.registerCommand('rest-client.fold-response', this.foldResponseBody, this));
         this.context.subscriptions.push(commands.registerCommand('rest-client.unfold-response', this.unfoldResponseBody, this));
@@ -67,27 +91,44 @@ export class HttpResponseWebview extends BaseWebview {
         this.context.subscriptions.push(commands.registerCommand('rest-client.copy-response-body', this.copyBody, this));
         this.context.subscriptions.push(commands.registerCommand('rest-client.save-response', this.save, this));
         this.context.subscriptions.push(commands.registerCommand('rest-client.save-response-body', this.saveBody, this));
+        this.context.subscriptions.push(commands.registerCommand('rest-client.show-response-history', this.showResponseHistory, this));
+        this.context.subscriptions.push(commands.registerCommand('rest-client.compare-response-previous', this.compareWithPrevious, this));
+        this.context.subscriptions.push(commands.registerCommand('rest-client.compare-response-history', this.compareWithHistory, this));
+        this.context.subscriptions.push(commands.registerCommand('rest-client.compare-response-file', this.compareWithFile, this));
     }
 
-    public async render(response: HttpResponse, column: ViewColumn) {
-        const reusablePanel = this.findReusablePanel();
+    public async render(response: HttpResponse, column: ViewColumn, sourceFile?: string) {
+        const fileHistory = sourceFile
+            ? await ResponseSaveManager.getHistoryForFile(sourceFile)
+            : [];
+        const requestHistory = sourceFile
+            ? await ResponseSaveManager.getHistoryForRequest(sourceFile, response.request)
+            : [];
+
         let panel: WebviewPanel;
 
-        if (reusablePanel) {
-            panel = reusablePanel;
+        if (canonicalResponsePanel) {
+            panel = canonicalResponsePanel;
             panel.title = this.getTitle(response);
+            this.disposeExtraPanels(panel);
         } else {
+            const createColumn = this.settledViewColumn ?? column;
             panel = window.createWebviewPanel(
                 this.viewType,
                 this.getTitle(response),
-                { viewColumn: column, preserveFocus: !this.settings.previewResponsePanelTakeFocus },
+                { viewColumn: createColumn, preserveFocus: !this.settings.previewResponsePanelTakeFocus },
                 {
                     enableFindWidget: true,
                     enableScripts: true,
                     retainContextWhenHidden: true
                 });
 
+            canonicalResponsePanel = panel;
+
             panel.onDidDispose(() => {
+                if (canonicalResponsePanel === panel) {
+                    canonicalResponsePanel = undefined;
+                }
                 if (panel === this.activePanel) {
                     this.setPreviewActiveContext(false);
                     this.activePanel = undefined;
@@ -97,9 +138,10 @@ export class HttpResponseWebview extends BaseWebview {
                 const index = this.panels.findIndex(v => v === panel);
                 if (index !== -1) {
                     this.panels.splice(index, 1);
-                    this.panelResponses.delete(panel);
+                    this.panelContexts.delete(panel);
                 }
                 if (this.panels.length === 0) {
+                    this.settledViewColumn = undefined;
                     this._onDidCloseAllWebviewPanels.fire();
                 }
             });
@@ -113,22 +155,148 @@ export class HttpResponseWebview extends BaseWebview {
                 this.setIsHTMLResponse(this.activeResponse);
             });
 
+            panel.webview.onDidReceiveMessage(message => this.handleWebviewMessage(panel, message));
+
             this.panels.push(panel);
+            this.settledViewColumn = panel.viewColumn ?? createColumn;
         }
 
-        panel.webview.html = this.getHtmlForWebview(panel, response);
+        const responseHtml = this.getHtmlForWebview(panel, response, fileHistory, requestHistory, false);
+        panel.webview.html = responseHtml;
 
         this.setPreviewActiveContext(this.settings.previewResponsePanelTakeFocus);
 
-        panel.reveal(
-            reusablePanel ? panel.viewColumn : column,
-            !this.settings.previewResponsePanelTakeFocus
-        );
+        const revealColumn = this.settledViewColumn ?? panel.viewColumn ?? column;
+        panel.reveal(revealColumn, !this.settings.previewResponsePanelTakeFocus);
 
-        this.panelResponses.set(panel, response);
+        this.panelContexts.set(panel, { response, sourceFile, responseHtml, fileHistory, requestHistory });
         this.activePanel = panel;
+        this.panels = [panel];
 
         this.setIsHTMLResponse(this.activeResponse);
+    }
+
+    private handleWebviewMessage(panel: WebviewPanel, message: { command?: string; id?: string }) {
+        this.activePanel = panel;
+
+        switch (message.command) {
+            case 'backToCurrent':
+                void this.restoreCurrentResponse(panel);
+                break;
+            case 'viewHistory':
+                if (message.id) {
+                    void this.viewHistoryEntry(panel, message.id);
+                }
+                break;
+            case 'refreshHistory':
+                void this.refreshToolbarHistory(panel);
+                break;
+            case 'comparePrevious':
+                void this.comparePrevious(panel);
+                break;
+            case 'compareWith':
+                if (message.id) {
+                    void this.compareWithEntry(panel, message.id);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private async refreshToolbarHistory(panel: WebviewPanel) {
+        const context = this.panelContexts.get(panel);
+        if (!context?.sourceFile) {
+            return;
+        }
+
+        context.fileHistory = await ResponseSaveManager.getHistoryForFile(context.sourceFile);
+        context.requestHistory = await ResponseSaveManager.getHistoryForRequest(context.sourceFile, context.response.request);
+
+        panel.webview.postMessage({
+            command: 'updateHistory',
+            fileHistory: context.fileHistory.map(entry => ({
+                id: entry.id,
+                label: this.escapeHtml(this.formatEntryLabel(entry)),
+            })),
+            requestPastCount: Math.max(0, context.requestHistory.length - 1),
+        });
+    }
+
+    private async restoreCurrentResponse(panel: WebviewPanel) {
+        const context = this.panelContexts.get(panel);
+        if (!context) {
+            return;
+        }
+
+        panel.webview.html = context.responseHtml;
+    }
+
+    private async viewHistoryEntry(panel: WebviewPanel, entryId: string) {
+        const context = this.panelContexts.get(panel);
+        if (!context) {
+            return;
+        }
+
+        const entry = context.fileHistory.find(e => e.id === entryId)
+            ?? await ResponseSaveManager.findHistoryEntry(entryId);
+        if (!entry) {
+            window.showInformationMessage('ไม่พบรายการใน history');
+            return;
+        }
+
+        try {
+            const saved = await fs.readJson(entry.filePath) as SavedResponseFile;
+            const html = this.getHistoryViewHtml(panel, saved, context.fileHistory, context.requestHistory, entry);
+            panel.webview.html = html;
+        } catch {
+            window.showErrorMessage('ไม่พบไฟล์ response ใน history');
+        }
+    }
+
+    private async comparePrevious(panel: WebviewPanel) {
+        const context = this.panelContexts.get(panel);
+        if (!context || context.requestHistory.length < 2) {
+            window.showInformationMessage('ต้องยิง request เดิมอย่างน้อย 2 ครั้งก่อนเทียบกับครั้งก่อนหน้า');
+            return;
+        }
+
+        const previous = context.requestHistory[1];
+        await this.openNativeCompare(previous, context.response.body,
+            this.formatHistoryLabel(previous), 'Current');
+    }
+
+    private async compareWithEntry(panel: WebviewPanel, entryId: string) {
+        const context = this.panelContexts.get(panel);
+        if (!context) {
+            return;
+        }
+
+        const entry = context.fileHistory.find(e => e.id === entryId)
+            ?? await ResponseSaveManager.findHistoryEntry(entryId);
+        if (!entry) {
+            return;
+        }
+
+        await this.openNativeCompare(entry, context.response.body,
+            this.formatHistoryLabel(entry), 'Current');
+    }
+
+    private async openNativeCompare(
+        historyEntry: ResponseHistoryEntry,
+        currentBody: string,
+        leftTitle: string,
+        rightTitle: string
+    ) {
+        try {
+            const previousBody = await ResponseCompareUtility.getBodyFromSavedFile(historyEntry.filePath);
+            const leftPath = await ResponseCompareUtility.writeTempComparable('compare-left', previousBody);
+            const rightPath = await ResponseCompareUtility.writeTempComparable('compare-right', currentBody);
+            const diffColumn = canonicalResponsePanel?.viewColumn ?? ViewColumn.Beside;
+            await ResponseCompareUtility.openDiff(leftPath, rightPath, `${leftTitle} ↔ ${rightTitle}`, diffColumn);
+        } catch {
+            window.showErrorMessage('เทียบ response ไม่สำเร็จ');
+        }
     }
 
     public dispose() {
@@ -154,8 +322,14 @@ export class HttpResponseWebview extends BaseWebview {
 
     @trace('Raw')
     private showRawResponse() {
-        if (this.activeResponse && this.activePanel) {
-            this.activePanel.webview.html = this.getHtmlForWebview(this.activePanel, this.activeResponse);
+        if (this.activeResponse && this.activePanel && this.activeContext) {
+            this.activePanel.webview.html = this.getHtmlForWebview(
+                this.activePanel,
+                this.activeResponse,
+                this.activeContext.fileHistory,
+                this.activeContext.requestHistory,
+                false
+            );
         }
     }
 
@@ -177,6 +351,82 @@ export class HttpResponseWebview extends BaseWebview {
                 window.showErrorMessage('Failed to save latest response to disk.');
             }
         }
+    }
+
+    @trace('Response History')
+    private async showResponseHistory() {
+        const panel = this.activePanel;
+        if (panel) {
+            await this.refreshToolbarHistory(panel);
+        }
+    }
+
+    @trace('Compare With Previous')
+    private async compareWithPrevious() {
+        const panel = this.activePanel;
+        if (panel) {
+            await this.comparePrevious(panel);
+        }
+    }
+
+    @trace('Compare With History')
+    private async compareWithHistory() {
+        const panel = this.activePanel;
+        const context = this.activeContext;
+        if (!panel || !context || context.fileHistory.length === 0) {
+            window.showInformationMessage('ยังไม่มี history สำหรับเทียบ');
+            return;
+        }
+
+        const selected = await window.showQuickPick(
+            context.fileHistory.map(entry => ({
+                label: this.formatEntryLabel(entry),
+                description: new Date(entry.savedAt).toLocaleString(),
+                id: entry.id,
+            })),
+            { placeHolder: 'เลือก response ที่จะเทียบกับปัจจุบัน' }
+        );
+
+        if (selected?.id) {
+            await this.compareWithEntry(panel, selected.id);
+        }
+    }
+
+    @trace('Compare With File')
+    private async compareWithFile() {
+        const context = this.activeContext;
+        if (!context) {
+            return;
+        }
+
+        const uri = await window.showOpenDialog({
+            canSelectMany: false,
+            filters: { 'JSON': ['json'], 'All Files': ['*'] },
+            openLabel: 'Compare',
+        });
+
+        if (!uri?.[0]) {
+            return;
+        }
+
+        try {
+            const otherBody = await ResponseCompareUtility.getBodyFromSavedFile(uri[0].fsPath);
+            const leftPath = await ResponseCompareUtility.writeTempComparable('compare-file', otherBody);
+            const rightPath = await ResponseCompareUtility.writeTempComparable('compare-current', context.response.body);
+            const diffColumn = canonicalResponsePanel?.viewColumn ?? ViewColumn.Beside;
+            await ResponseCompareUtility.openDiff(leftPath, rightPath, 'File ↔ Current', diffColumn);
+        } catch {
+            window.showErrorMessage('อ่านไฟล์สำหรับเทียบไม่สำเร็จ');
+        }
+    }
+
+    private formatHistoryLabel(entry: ResponseHistoryEntry): string {
+        return new Date(entry.savedAt).toLocaleString();
+    }
+
+    private formatEntryLabel(entry: ResponseHistoryEntry): string {
+        const name = entry.requestName || `${entry.method} ${ResponseSaveManager.normalizeUrlForKey(entry.url)}`;
+        return `[${name}] ${entry.statusCode} · ${entry.durationMs}ms · ${this.formatHistoryLabel(entry)}`;
     }
 
     @trace('Save Response Body')
@@ -238,7 +488,13 @@ export class HttpResponseWebview extends BaseWebview {
         }
     }
 
-    private getHtmlForWebview(panel: WebviewPanel, response: HttpResponse): string {
+    private getHtmlForWebview(
+        panel: WebviewPanel,
+        response: HttpResponse,
+        fileHistory: ResponseHistoryEntry[],
+        requestHistory: ResponseHistoryEntry[],
+        showBack: boolean
+    ): string {
         let innerHtml: string;
         let width = 2;
         let contentType = response.contentType;
@@ -253,9 +509,40 @@ export class HttpResponseWebview extends BaseWebview {
             innerHtml = `<pre><code>${this.addLineNums(code)}</code></pre>`;
         }
 
-        // Content Security Policy
+        const content = this.settings.disableAddingHrefLinkForLargeResponse && response.bodySizeInBytes > this.settings.largeResponseBodySizeLimitInMB * 1024 * 1024
+            ? innerHtml
+            : this.addUrlLinks(innerHtml);
+
+        return this.wrapWebviewHtml(panel, width, fileHistory, requestHistory, showBack, content);
+    }
+
+    private getHistoryViewHtml(
+        panel: WebviewPanel,
+        saved: SavedResponseFile,
+        fileHistory: ResponseHistoryEntry[],
+        requestHistory: ResponseHistoryEntry[],
+        entry: ResponseHistoryEntry
+    ): string {
+        const display = this.formatSavedResponseDisplay(saved);
+        const width = (display.split(/\r\n|\r|\n/).length + 1).toString().length;
+        const content = `<pre><code>${this.escapeHtml(display)}</code></pre>`;
+        const toolbar = this.buildToolbarHtml(fileHistory, requestHistory, true, entry.id);
+        return this.wrapWebviewHtml(panel, width, fileHistory, requestHistory, true, content, toolbar);
+    }
+
+    private wrapWebviewHtml(
+        panel: WebviewPanel,
+        width: number,
+        fileHistory: ResponseHistoryEntry[],
+        requestHistory: ResponseHistoryEntry[],
+        showBack: boolean,
+        content: string,
+        toolbarOverride?: string
+    ): string {
         const nonce = new Date().getTime() + '' + new Date().getMilliseconds();
         const csp = this.getCsp(nonce);
+        const toolbar = toolbarOverride ?? this.buildToolbarHtml(fileHistory, requestHistory, showBack);
+
         return `
     <head>
         <link rel="stylesheet" type="text/css" href="${panel.webview.asWebviewUri(this.baseFilePath)}">
@@ -264,21 +551,139 @@ export class HttpResponseWebview extends BaseWebview {
         ${this.getSettingsOverrideStyles(width)}
         ${csp}
         <script nonce="${nonce}">
-            document.addEventListener('DOMContentLoaded', function () {
-                document.getElementById('scroll-to-top')
-                        .addEventListener('click', function () { window.scrollTo(0,0); });
+            const vscode = acquireVsCodeApi();
+            function bindToolbar() {
+                const backBtn = document.getElementById('btn-back');
+                if (backBtn) {
+                    backBtn.addEventListener('click', function () { vscode.postMessage({ command: 'backToCurrent' }); });
+                }
+                const scrollBtn = document.getElementById('scroll-to-top');
+                if (scrollBtn) {
+                    scrollBtn.addEventListener('click', function () { window.scrollTo(0,0); });
+                }
+                const historySelect = document.getElementById('history-select');
+                if (historySelect) {
+                    historySelect.addEventListener('focus', function () { vscode.postMessage({ command: 'refreshHistory' }); });
+                    historySelect.addEventListener('change', function () {
+                        const id = historySelect.value;
+                        if (id) {
+                            vscode.postMessage({ command: 'viewHistory', id: id });
+                        } else {
+                            vscode.postMessage({ command: 'backToCurrent' });
+                        }
+                    });
+                }
+                const compareSelect = document.getElementById('compare-select');
+                if (compareSelect) {
+                    compareSelect.addEventListener('focus', function () { vscode.postMessage({ command: 'refreshHistory' }); });
+                    compareSelect.addEventListener('change', function () {
+                        const id = compareSelect.value;
+                        if (id) {
+                            vscode.postMessage({ command: 'compareWith', id: id });
+                            compareSelect.value = '';
+                        }
+                    });
+                }
+                const comparePrev = document.getElementById('btn-compare-prev');
+                if (comparePrev) {
+                    comparePrev.addEventListener('click', function () { vscode.postMessage({ command: 'comparePrevious' }); });
+                }
+            }
+            window.addEventListener('message', function (event) {
+                const msg = event.data;
+                if (msg.command !== 'updateHistory') {
+                    return;
+                }
+                const countLabel = document.getElementById('history-count-label');
+                if (countLabel) {
+                    countLabel.textContent = 'History (' + msg.fileHistory.length + ')';
+                }
+                const historySelect = document.getElementById('history-select');
+                if (historySelect) {
+                    const current = historySelect.value;
+                    historySelect.innerHTML = '<option value="">● ปัจจุบัน</option>' +
+                        msg.fileHistory.map(function (e) {
+                            return '<option value="' + e.id + '">' + e.label + '</option>';
+                        }).join('');
+                    if (current) {
+                        historySelect.value = current;
+                    }
+                }
+                const compareSelect = document.getElementById('compare-select');
+                if (compareSelect) {
+                    compareSelect.innerHTML = '<option value="">เทียบกับ…</option>' +
+                        msg.fileHistory.map(function (e) {
+                            return '<option value="' + e.id + '">เทียบ: ' + e.label + '</option>';
+                        }).join('');
+                }
+                const comparePrev = document.getElementById('btn-compare-prev');
+                if (comparePrev) {
+                    comparePrev.disabled = msg.requestPastCount < 1;
+                }
             });
+            document.addEventListener('DOMContentLoaded', bindToolbar);
         </script>
     </head>
     <body>
-        <div>
-            ${this.settings.disableAddingHrefLinkForLargeResponse && response.bodySizeInBytes > this.settings.largeResponseBodySizeLimitInMB * 1024 * 1024
-                ? innerHtml
-                : this.addUrlLinks(innerHtml)}
+        ${toolbar}
+        <div class="response-content">
+            ${content}
             <a id="scroll-to-top" role="button" aria-label="scroll to top" title="Scroll To Top"><span class="icon"></span></a>
         </div>
         <script type="text/javascript" src="${panel.webview.asWebviewUri(this.scriptFilePath)}" nonce="${nonce}" charset="UTF-8"></script>
     </body>`;
+    }
+
+    private buildToolbarHtml(
+        fileHistory: ResponseHistoryEntry[],
+        requestHistory: ResponseHistoryEntry[],
+        showBack: boolean,
+        selectedId?: string
+    ): string {
+        const requestPastCount = Math.max(0, requestHistory.length - 1);
+        const backBtn = showBack
+            ? '<button id="btn-back" class="toolbar-btn toolbar-back">← กลับ</button>'
+            : '';
+
+        const historyOptions = fileHistory.map(entry => {
+            const label = this.formatEntryLabel(entry);
+            const selected = entry.id === selectedId ? ' selected' : '';
+            return `<option value="${entry.id}"${selected}>${this.escapeHtml(label)}</option>`;
+        }).join('');
+
+        const compareOptions = fileHistory.map(entry => {
+            const label = this.formatEntryLabel(entry);
+            return `<option value="${entry.id}">เทียบ: ${this.escapeHtml(label)}</option>`;
+        }).join('');
+
+        return `<div class="response-toolbar">
+            ${backBtn}
+            <label id="history-count-label" class="toolbar-label" for="history-select">History (${fileHistory.length})</label>
+            <select id="history-select" class="history-select" title="ดู response ทั้งหมดในไฟล์นี้">
+                <option value="">● ปัจจุบัน</option>
+                ${historyOptions}
+            </select>
+            <button id="btn-compare-prev" class="toolbar-btn"${requestPastCount < 1 ? ' disabled' : ''}>เทียบครั้งก่อน</button>
+            <select id="compare-select" class="history-select" title="เปิด diff ใน Cursor (tab ใหม่)">
+                <option value="">เทียบกับ…</option>
+                ${compareOptions}
+            </select>
+        </div>`;
+    }
+
+    private formatSavedResponseDisplay(saved: SavedResponseFile): string {
+        const statusLine = `HTTP/${saved._meta.httpVersion} ${saved._meta.statusCode} ${saved._meta.statusMessage}`;
+        const headerString = formatHeaders(saved.headers as ResponseHeaders);
+        const body = saved.body ? `\n${saved.body}` : '';
+        return `${statusLine}\n${headerString}${body}`;
+    }
+
+    private escapeHtml(text: string): string {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     private highlightResponse(response: HttpResponse): string {

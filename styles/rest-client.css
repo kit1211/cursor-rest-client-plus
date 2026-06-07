@@ -242,6 +242,96 @@ body.vscode-high-contrast #scroll-to-top:hover {
   background-color: #007acc;
 }
 
+.response-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.35);
+  background-color: inherit;
+  font-family: var(--vscode-font-family);
+  font-size: 12px;
+}
+
+.toolbar-btn {
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #fff);
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.toolbar-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground, #45494e);
+}
+
+.toolbar-sep {
+  color: rgba(128, 128, 128, 0.6);
+  user-select: none;
+}
+
+.toolbar-label {
+  color: var(--vscode-foreground, #ccc);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.toolbar-back {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #fff);
+}
+
+.history-select {
+  min-width: 180px;
+  max-width: 320px;
+  background: var(--vscode-dropdown-background, #3c3c3c);
+  color: var(--vscode-dropdown-foreground, #ccc);
+  border: 1px solid var(--vscode-dropdown-border, #3c3c3c);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+.compare-container {
+  display: flex;
+  gap: 8px;
+  height: calc(100vh - 60px);
+}
+
+.compare-pane {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.compare-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--vscode-foreground, #ccc);
+}
+
+.compare-pane pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 #scroll-to-top span.icon::before {
   content: "";
   /* Chevron up icon */

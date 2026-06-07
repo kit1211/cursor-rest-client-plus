@@ -39,11 +39,19 @@ export abstract class BaseWebview {
     }
 
     protected findReusablePanel(): WebviewPanel | undefined {
-        if (this.settings.showResponseInDifferentTab) {
+        if (this.settings.showResponseInDifferentTab || this.panels.length === 0) {
             return undefined;
         }
 
-        return this.activePanel ?? (this.panels.length > 0 ? this.panels[this.panels.length - 1] : undefined);
+        return this.panels[0];
+    }
+
+    protected disposeExtraPanels(keep: WebviewPanel): void {
+        for (const panel of [...this.panels]) {
+            if (panel !== keep) {
+                panel.dispose();
+            }
+        }
     }
 
     protected abstract get viewType(): string;

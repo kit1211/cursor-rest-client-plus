@@ -2,7 +2,7 @@
 # ดูผลที่ได้ที่ https://webhook.site/#!/view/54aad5c3-bac1-421a-bb1b-54d6fa610b97
 
 @webhook = https://webhook.site/54aad5c3-bac1-421a-bb1b-54d6fa610b97
-
+@save = true
 ### ทดสอบ Faker ครบทุก type (POST JSON)
 # @name faker-all-types
 POST {{webhook}} HTTP/1.1
@@ -64,3 +64,6 @@ Content-Type: application/json
   "email_a": "{{$faker email}}",
   "email_b": "{{$faker email}}"
 }
+
+###
+GET https://dummyjson.com/product/23
