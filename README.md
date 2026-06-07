@@ -39,7 +39,7 @@ A fork of [REST Client](https://github.com/Huachao/vscode-restclient) (MIT), tun
 2. If not found → [Open VSX](https://open-vsx.org/extension/kit1211/rest-client-plus) or install from `.vsix` on [GitHub Releases](https://github.com/kit1211/cursor-rest-client-plus/releases)
 
 ```bash
-cursor --install-extension rest-client-plus-0.1.8.vsix
+cursor --install-extension rest-client-plus-0.1.9.vsix
 ```
 
 ---
@@ -286,6 +286,7 @@ Test in Cursor: **F5** → Extension Development Host
 
 | Version | Highlights |
 |---------|------------|
+| **0.1.9** | Sync README to Open VSX (full Faker examples) |
 | **0.1.8** | English UI for History/Compare, English README |
 | **0.1.7** | Per-file history, IDE diff compare, auto cache |
 | **0.1.6** | History/Compare toolbar in Response tab |

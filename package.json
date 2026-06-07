@@ -2,7 +2,7 @@
   "name": "rest-client-plus",
   "displayName": "Cursor REST Client Plus",
   "description": "REST API client for Cursor/VS Code with Faker variables, response history, IDE diff compare, and Cursor preview fixes",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "publisher": "kit1211",
   "author": {
     "name": "kit1211"
