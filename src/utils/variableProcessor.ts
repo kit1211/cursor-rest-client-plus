@@ -1,10 +1,10 @@
 import { TextDocument } from 'vscode';
 import { VariableType } from "../models/variableType";
 import { EnvironmentVariableProvider } from './httpVariableProviders/environmentVariableProvider';
+import { FakerVariableProvider } from './httpVariableProviders/fakerVariableProvider';
 import { FileVariableProvider } from './httpVariableProviders/fileVariableProvider';
 import { HttpVariableProvider } from './httpVariableProviders/httpVariableProvider';
 import { RequestVariableProvider } from './httpVariableProviders/requestVariableProvider';
-import { FakerVariableProvider } from './httpVariableProviders/fakerVariableProvider';
 import { SystemVariableProvider } from './httpVariableProviders/systemVariableProvider';
 import { getCurrentTextDocument } from './workspaceUtility';
 
