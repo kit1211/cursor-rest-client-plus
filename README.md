@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>ยิง REST API ใน Cursor/VS Code — พร้อม Faker, History และ Compare ในตัว</strong>
+  <strong>REST API client for Cursor & VS Code — with Faker, History & Compare built in</strong>
 </p>
 
 <p align="center">
@@ -14,55 +14,55 @@
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
 </p>
 
-Fork จาก [REST Client](https://github.com/Huachao/vscode-restclient) (MIT) ปรับให้ทำงานบน **Cursor** ได้เต็มที่ และเพิ่มฟีเจอร์สำหรับ workflow ทดสอบ API จริง
+A fork of [REST Client](https://github.com/Huachao/vscode-restclient) (MIT), tuned for **Cursor** with features for real-world API testing workflows.
 
 **Repository:** https://github.com/kit1211/cursor-rest-client-plus
 
 ---
 
-## ทำไมต้องใช้ตัวนี้?
+## Why this extension?
 
-| ปัญหาบน Cursor | Cursor REST Client Plus |
-|----------------|-------------------------|
-| Response ไม่ขึ้นหลังยิง request | แก้ `previewColumn` ให้เปิด tab ถูกต้อง |
-| ยิงซ้ำแล้วเปิด tab ใหม่ทุกครั้ง | ใช้ **Response tab เดียว** อัปเดตแทน |
-| ต้องเตรียมข้อมูลทดสอบเอง | ใส่ `{{$faker ...}}` สุ่มได้ทันที |
-| อยากเก็บ response เก่าเทียบกัน | **History + Compare** ใน Response tab |
+| Problem on Cursor | Cursor REST Client Plus |
+|-------------------|-------------------------|
+| Response tab never appears | Fixed `previewColumn` handling for Cursor layouts |
+| Every request opens a new tab | **Single Response tab** reused and updated |
+| Manual test data setup | `{{$faker ...}}` generates data instantly |
+| Need to compare past responses | **History + Compare** in the Response tab |
 
 ---
 
-## ติดตั้ง
+## Installation
 
 ### Cursor / VS Code
 
-1. Extensions → ค้นหา `kit1211.rest-client-plus` หรือ **Cursor REST Client Plus**
-2. ถ้าค้นหาไม่เจอ → [Open VSX](https://open-vsx.org/extension/kit1211/rest-client-plus) หรือติดตั้งจาก `.vsix` ใน [GitHub Releases](https://github.com/kit1211/cursor-rest-client-plus/releases)
+1. Extensions → search `kit1211.rest-client-plus` or **Cursor REST Client Plus**
+2. If not found → [Open VSX](https://open-vsx.org/extension/kit1211/rest-client-plus) or install from `.vsix` on [GitHub Releases](https://github.com/kit1211/cursor-rest-client-plus/releases)
 
 ```bash
-cursor --install-extension rest-client-plus-0.1.7.vsix
+cursor --install-extension rest-client-plus-0.1.8.vsix
 ```
 
 ---
 
-## เริ่มใช้ใน 30 วินาที
+## Quick start (30 seconds)
 
-1. สร้างไฟล์ `api.http`
-2. เขียน request แล้วคลิก **Send Request** (หรือ `Cmd+Alt+R` / `Ctrl+Alt+R`)
-3. ดูผลในแท็บ **Response** ด้านข้าง
+1. Create `api.http`
+2. Write a request and click **Send Request** (or `Cmd+Alt+R` / `Ctrl+Alt+R`)
+3. View the result in the **Response** tab beside your editor
 
 ```http
 GET https://dummyjson.com/products/1 HTTP/1.1
 ```
 
-**ผลลัพธ์ที่คาดหวัง:** แท็บ `Response(XXXms)` แสดง status `200 OK`, headers และ JSON body
+**Expected result:** A `Response(XXXms)` tab showing `200 OK`, headers, and JSON body.
 
 ---
 
-## ฟีเจอร์ใหม่
+## Features
 
-### 1. ตัวแปร Faker — `{{$faker ...}}`
+### 1. Faker variables — `{{$faker ...}}`
 
-สุ่มข้อมูลใน body, header หรือ query string ได้ทันที
+Generate random data in body, headers, or query strings.
 
 ```http
 POST https://api.example.com/users HTTP/1.1
@@ -75,58 +75,58 @@ Content-Type: application/json
 }
 ```
 
-| Type | ผลลัพธ์ |
-|------|---------|
-| `fullName`, `firstName`, `lastName` | ชื่อ |
-| `email`, `phone` | ติดต่อ |
-| `uuid`, `ipv4` | ID / IP |
-| `datetime`, `date` | วันเวลา |
-| `city`, `country`, `company` | ที่อยู่ / บริษัท |
-| `word`, `url`, `password` | อื่นๆ |
+| Type | Output |
+|------|--------|
+| `fullName`, `firstName`, `lastName` | Names |
+| `email`, `phone` | Contact info |
+| `uuid`, `ipv4` | IDs / IPs |
+| `datetime`, `date` | Dates & times |
+| `city`, `country`, `company` | Location / company |
+| `word`, `url`, `password` | Misc |
 | `boolean` | `true` / `false` |
-| `int min max` | ตัวเลขในช่วง |
+| `int min max` | Integer in range |
 
-> แต่ละ `{{$faker ...}}` ใน request เดียวกันสุ่มคนละค่า — ไม่ซ้ำกันใน request เดียว
-
----
-
-### 2. Response History — เก็บทุกครั้งอัตโนมัติ
-
-**ไม่ต้องตั้งค่าอะไร** — ทุก response ถูกบันทึกลง:
-
-```
-~/.rest-client/response-cache/     ← ไฟล์ response เต็ม (headers + body)
-~/.rest-client/response-history.json  ← index รายการล่าสุด
-```
-
-ในแท็บ Response จะมี toolbar:
-
-```
-History (N) [dropdown ▼]  |  เทียบครั้งก่อน  |  เทียบกับ… [dropdown ▼]
-```
-
-- **History dropdown** — ดู response เก่าทั้งหมดในไฟล์ `.http` นั้น (ข้าม request ก็ยังเห็น)
-- คลิก dropdown → โหลดรายการล่าสุดจาก disk อัตโนมัติ
-- เลือกรายการ → ดู response เก่าใน tab เดียวกัน → กด **← กลับ** กลับมาปัจจุบัน
-
-**ผลลัพธ์ที่คาดหวัง:** ยิง 3 ครั้ง → `History (3)` แสดงรายการพร้อมชื่อ request เช่น `[faker-all-types] 200 · 282ms · 6/8/2026...`
+> Each `{{$faker ...}}` in the same request gets a **unique** value.
 
 ---
 
-### 3. Auto-save ข้างไฟล์ — `@save = true`
+### 2. Response History — automatic on every request
 
-ถ้าต้องการ copy ไฟล์ `.json` ไว้ในโปรเจกต์ (นอกจาก cache ใน home):
+No configuration required. Every response is saved to:
+
+```
+~/.rest-client/response-cache/        ← full response files (headers + body)
+~/.rest-client/response-history.json  ← index of recent entries
+```
+
+Response tab toolbar:
+
+```
+History (N) [dropdown ▼]  |  vs Previous  |  Compare with… [dropdown ▼]
+```
+
+- **History dropdown** — browse past responses for the entire `.http` file (all named requests)
+- Focus the dropdown → list refreshes from disk automatically
+- Select an entry → view it in the same tab → click **← Back** to return to current
+
+**Expected result:** After 3 requests → `History (3)` lists entries like `[faker-all-types] 200 · 282ms · 6/8/2026...`
+
+---
+
+### 3. Auto-save beside your file — `@save = true`
+
+To also keep `.json` copies in your project (in addition to the global cache):
 
 ```http
 @save = true
 
-### สร้างผู้ใช้
+### Create user
 # @name create-user
 POST https://api.example.com/users HTTP/1.1
 ...
 ```
 
-ไฟล์จะถูก save ที่:
+Files are written to:
 
 ```
 your-api.http
@@ -134,31 +134,31 @@ your-api.http
   post_users_2026-06-08T....json
 ```
 
-แต่ละไฟล์มี `_meta`, `headers`, `body` ครบ
+Each file contains `_meta`, `headers`, and `body`.
 
 ---
 
-### 4. Compare — diff แบบ Cursor IDE
+### 4. Compare — native Cursor/VS Code diff
 
-- **เทียบครั้งก่อน** — เทียบ response ปัจจุบันกับครั้งก่อนของ **request เดียวกัน** (ต้องยิงซ้ำ ≥ 2 ครั้ง)
-- **เทียบกับ…** — เลือกจาก dropdown แล้วเปิด **diff editor ของ Cursor** ข้างๆ Response tab
-- ปิด diff tab เมื่อเสร็จ — **Response tab ยังอยู่** ไม่ต้องยิงใหม่
+- **vs Previous** — compare current response with the previous run of the **same request** (requires ≥ 2 runs)
+- **Compare with…** — pick any past response from the dropdown → opens the **IDE diff editor** beside the Response tab
+- Close the diff tab when done — **Response tab stays open**, no need to resend
 
-**ผลลัพธ์ที่คาดหวัง:** เปิด split diff สีเขียว/แดง แบบเดียวกับ Compare ใน IDE
-
----
-
-### 5. Response tab เดียว (ไม่เปิดซ้ำ)
-
-ยิง request ซ้ำหรือเปลี่ยน request ในไฟล์เดียวกัน → อัปเดตแท็บ `Response(XXXms)` เดิม ไม่สร้าง tab ใหม่ทุกครั้ง
+**Expected result:** Side-by-side diff with green/red highlighting, same as the built-in Compare view.
 
 ---
 
-## ตัวอย่างไฟล์ทดสอบ
+### 5. Single Response tab
 
-ดู [`tests/faker.http`](tests/faker.http) — ทดสอบ Faker ครบทุก type + webhook
+Resending or switching requests in the same file updates the existing `Response(XXXms)` tab instead of opening new ones.
 
-รัน integration test จากเทอร์มินัล:
+---
+
+## Sample test file
+
+See [`tests/faker.http`](tests/faker.http) for full Faker coverage + webhook tests.
+
+Run the integration test:
 
 ```bash
 npm run webpack
@@ -167,21 +167,21 @@ node scripts/test-faker-http.mjs
 
 ---
 
-## ตัวแปรอื่นๆ (จาก REST Client เดิม)
+## Other variables (from REST Client)
 
-| ตัวแปร | คำอธิบาย |
-|--------|----------|
+| Variable | Description |
+|----------|-------------|
 | `{{$guid}}` | UUID |
 | `{{$timestamp}}` | Unix timestamp |
-| `{{$datetime iso8601}}` | วันเวลา ISO8601 |
-| `{{$randomInt 1 100}}` | ตัวเลขสุ่ม |
-| `{{$dotenv VAR}}` | อ่านจาก `.env` |
-| `@variable = value` | ตัวแปรในไฟล์ |
-| `# @name my-request` | ตั้งชื่อ request (ใช้ใน History) |
+| `{{$datetime iso8601}}` | ISO8601 datetime |
+| `{{$randomInt 1 100}}` | Random integer |
+| `{{$dotenv VAR}}` | Read from `.env` |
+| `@variable = value` | File-level variable |
+| `# @name my-request` | Name a request (used in History) |
 
 ---
 
-## การตั้งค่าแนะนำ
+## Recommended settings
 
 ```json
 {
@@ -191,54 +191,55 @@ node scripts/test-faker-http.mjs
 }
 ```
 
-| ค่า | ความหมาย |
-|-----|----------|
-| `previewColumn: "beside"` | เปิด Response ข้างไฟล์ `.http` |
-| `requestNameAsResponseTabTitle: true` | ชื่อ tab เป็น `ชื่อ-request(282ms)` แทน `Response(282ms)` |
+| Setting | Effect |
+|---------|--------|
+| `previewColumn: "beside"` | Open Response next to the `.http` file |
+| `requestNameAsResponseTabTitle: true` | Tab title `my-request(282ms)` instead of `Response(282ms)` |
 
 ---
 
-## Keyboard Shortcuts
+## Keyboard shortcuts
 
-| การกระทำ | macOS | Windows/Linux |
-|----------|-------|---------------|
+| Action | macOS | Windows/Linux |
+|--------|-------|---------------|
 | Send Request | `Cmd+Alt+R` | `Ctrl+Alt+R` |
-| Rerun Last Request | Command Palette → `Rest Client: Rerun Request` | เหมือนกัน |
+| Rerun Last Request | Command Palette → `Rest Client: Rerun Request` | Same |
 
 ---
 
-## พัฒนา / Build
+## Development / Build
 
 ```bash
 npm install
-npm run webpack          # build development
-npm run vscode:prepublish  # build production
+npm run webpack            # development build
+npm run vscode:prepublish  # production build
 npx @vscode/vsce package --allow-missing-repository
 ```
 
-ทดสอบใน Cursor: **F5** → Extension Development Host
+Test in Cursor: **F5** → Extension Development Host
 
 ---
 
-## Changelog สรุป
+## Changelog (summary)
 
-| เวอร์ชัน | สิ่งที่เพิ่ม |
-|---------|-------------|
-| **0.1.7** | History ทั้งไฟล์, Compare แบบ IDE diff, cache อัตโนมัติ |
-| **0.1.6** | Toolbar History/Compare ใน Response tab |
-| **0.1.5** | `@save = true`, response-history.json |
-| **0.1.4** | Reuse Response tab, แก้ preview บน Cursor |
+| Version | Highlights |
+|---------|------------|
+| **0.1.8** | English UI for History/Compare, English README |
+| **0.1.7** | Per-file history, IDE diff compare, auto cache |
+| **0.1.6** | History/Compare toolbar in Response tab |
+| **0.1.5** | `@save = true`, `response-history.json` |
+| **0.1.4** | Reuse Response tab, Cursor preview fix |
 | **0.1.0** | Faker variables, rebrand |
 
-รายละเอียดเต็ม → [CHANGELOG.md](CHANGELOG.md)
+Full details → [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-## เครดิต
+## Credits
 
 - [REST Client](https://github.com/Huachao/vscode-restclient) — Huachao Mao (MIT)
-- [@faker-js/faker](https://fakerjs.dev/) — ข้อมูลสุ่ม
+- [@faker-js/faker](https://fakerjs.dev/) — random test data
 
 ## License
 
-MIT — ดู [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE)

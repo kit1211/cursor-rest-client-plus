@@ -241,7 +241,7 @@ export class HttpResponseWebview extends BaseWebview {
         const entry = context.fileHistory.find(e => e.id === entryId)
             ?? await ResponseSaveManager.findHistoryEntry(entryId);
         if (!entry) {
-            window.showInformationMessage('ไม่พบรายการใน history');
+            window.showInformationMessage('History entry not found.');
             return;
         }
 
@@ -250,14 +250,14 @@ export class HttpResponseWebview extends BaseWebview {
             const html = this.getHistoryViewHtml(panel, saved, context.fileHistory, context.requestHistory, entry);
             panel.webview.html = html;
         } catch {
-            window.showErrorMessage('ไม่พบไฟล์ response ใน history');
+            window.showErrorMessage('Response file not found in history.');
         }
     }
 
     private async comparePrevious(panel: WebviewPanel) {
         const context = this.panelContexts.get(panel);
         if (!context || context.requestHistory.length < 2) {
-            window.showInformationMessage('ต้องยิง request เดิมอย่างน้อย 2 ครั้งก่อนเทียบกับครั้งก่อนหน้า');
+            window.showInformationMessage('Send the same request at least twice before comparing with previous.');
             return;
         }
 
@@ -295,7 +295,7 @@ export class HttpResponseWebview extends BaseWebview {
             const diffColumn = canonicalResponsePanel?.viewColumn ?? ViewColumn.Beside;
             await ResponseCompareUtility.openDiff(leftPath, rightPath, `${leftTitle} ↔ ${rightTitle}`, diffColumn);
         } catch {
-            window.showErrorMessage('เทียบ response ไม่สำเร็จ');
+            window.showErrorMessage('Failed to compare responses.');
         }
     }
 
@@ -374,7 +374,7 @@ export class HttpResponseWebview extends BaseWebview {
         const panel = this.activePanel;
         const context = this.activeContext;
         if (!panel || !context || context.fileHistory.length === 0) {
-            window.showInformationMessage('ยังไม่มี history สำหรับเทียบ');
+            window.showInformationMessage('No history available to compare.');
             return;
         }
 
@@ -384,7 +384,7 @@ export class HttpResponseWebview extends BaseWebview {
                 description: new Date(entry.savedAt).toLocaleString(),
                 id: entry.id,
             })),
-            { placeHolder: 'เลือก response ที่จะเทียบกับปัจจุบัน' }
+            { placeHolder: 'Select a saved response to compare with current' }
         );
 
         if (selected?.id) {
@@ -416,7 +416,7 @@ export class HttpResponseWebview extends BaseWebview {
             const diffColumn = canonicalResponsePanel?.viewColumn ?? ViewColumn.Beside;
             await ResponseCompareUtility.openDiff(leftPath, rightPath, 'File ↔ Current', diffColumn);
         } catch {
-            window.showErrorMessage('อ่านไฟล์สำหรับเทียบไม่สำเร็จ');
+            window.showErrorMessage('Failed to read the selected file for comparison.');
         }
     }
 
@@ -601,7 +601,7 @@ export class HttpResponseWebview extends BaseWebview {
                 const historySelect = document.getElementById('history-select');
                 if (historySelect) {
                     const current = historySelect.value;
-                    historySelect.innerHTML = '<option value="">● ปัจจุบัน</option>' +
+                    historySelect.innerHTML = '<option value="">● Current</option>' +
                         msg.fileHistory.map(function (e) {
                             return '<option value="' + e.id + '">' + e.label + '</option>';
                         }).join('');
@@ -611,9 +611,9 @@ export class HttpResponseWebview extends BaseWebview {
                 }
                 const compareSelect = document.getElementById('compare-select');
                 if (compareSelect) {
-                    compareSelect.innerHTML = '<option value="">เทียบกับ…</option>' +
+                    compareSelect.innerHTML = '<option value="">Compare with…</option>' +
                         msg.fileHistory.map(function (e) {
-                            return '<option value="' + e.id + '">เทียบ: ' + e.label + '</option>';
+                            return '<option value="' + e.id + '">Compare: ' + e.label + '</option>';
                         }).join('');
                 }
                 const comparePrev = document.getElementById('btn-compare-prev');
@@ -642,7 +642,7 @@ export class HttpResponseWebview extends BaseWebview {
     ): string {
         const requestPastCount = Math.max(0, requestHistory.length - 1);
         const backBtn = showBack
-            ? '<button id="btn-back" class="toolbar-btn toolbar-back">← กลับ</button>'
+            ? '<button id="btn-back" class="toolbar-btn toolbar-back">← Back</button>'
             : '';
 
         const historyOptions = fileHistory.map(entry => {
@@ -653,19 +653,19 @@ export class HttpResponseWebview extends BaseWebview {
 
         const compareOptions = fileHistory.map(entry => {
             const label = this.formatEntryLabel(entry);
-            return `<option value="${entry.id}">เทียบ: ${this.escapeHtml(label)}</option>`;
+            return `<option value="${entry.id}">Compare: ${this.escapeHtml(label)}</option>`;
         }).join('');
 
         return `<div class="response-toolbar">
             ${backBtn}
             <label id="history-count-label" class="toolbar-label" for="history-select">History (${fileHistory.length})</label>
-            <select id="history-select" class="history-select" title="ดู response ทั้งหมดในไฟล์นี้">
-                <option value="">● ปัจจุบัน</option>
+            <select id="history-select" class="history-select" title="Browse all saved responses in this file">
+                <option value="">● Current</option>
                 ${historyOptions}
             </select>
-            <button id="btn-compare-prev" class="toolbar-btn"${requestPastCount < 1 ? ' disabled' : ''}>เทียบครั้งก่อน</button>
-            <select id="compare-select" class="history-select" title="เปิด diff ใน Cursor (tab ใหม่)">
-                <option value="">เทียบกับ…</option>
+            <button id="btn-compare-prev" class="toolbar-btn"${requestPastCount < 1 ? ' disabled' : ''}>vs Previous</button>
+            <select id="compare-select" class="history-select" title="Open IDE diff in a new tab">
+                <option value="">Compare with…</option>
                 ${compareOptions}
             </select>
         </div>`;
