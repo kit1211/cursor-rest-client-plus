@@ -2,7 +2,7 @@
   "name": "rest-client-plus",
   "displayName": "Cursor REST Client Plus",
   "description": "REST Client สำหรับ Cursor/VS Code พร้อม Faker variables และแก้ปัญหา response preview บน Cursor",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "kit1211",
   "author": {
     "name": "kit1211"
